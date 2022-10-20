@@ -1,59 +1,30 @@
-
-pipeline{
-    agent {
-        label 'MVN3'
+pipeline {
+    agent { label 'TASK' }
+    triggers { pollSCM('* * * * *')}
+    parameters {
+        choice(name: 'BRANCH', choices: ['master', 'task'], description: 'build choice')
     }
     stages{
-        stage('clone'){
-            steps{
-                git url: 'https://github.com/tarunkumarpendem/shopizer.git',
-                    branch: 'master'
-            }
-        }
-        stage ('build') {
+        stage('vcs'){
             steps {
-               sh 'mvn clean package'
-           }
-        }
-        stage('Build the Code') {
-            steps {
-                withSonarQubeEnv('sonarcloud') {
-                    sh script: 'mvn clean package sonar:sonar'
-                }
-            }
-        stage('archiving-artifacts'){
-            steps{
-                archiveArtifacts artifacts: '**/target/*.jar', followSymlinks: false
-            }
-        }
-        stage('junit_reports'){
-            steps{
-                junit '**/surefire-reports/*.xml'
-            }
-        }
-    }    
-
-pipeline {
-    agent {label 'OPENJDK-11-JDK'}
-    triggers {
-        pollSCM('0 17 * * *')
-    }
-    stages {
-        stage('vcs') {
-            steps {
-                git branch: 'release', url: 'https://github.com/longflewtinku/shopizer.git'         
-            }
-        }
-        stage('merge') {
-            steps {
-                sh 'git checkout devops'
-                sh 'git merge release --no-ff'
+                git branch: "${params.BRANCH}",
+                    url:'https://github.com/GOWTHI143/shopizer.git'
             }
         }
         stage('build') {
-            steps {
+            steps{
                 sh 'mvn clean install'
+                }
+        }
+        stage('archive') {
+            steps{
+                archiveArtifacts artifacts: '**/target/*.jar'
             }
         }
+        stage ('results'){
+            steps {
+                junit '**/surfire-reports/*.xml'
+            }
+        }    
     }
 }
