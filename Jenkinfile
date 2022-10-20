@@ -1,0 +1,50 @@
+pipeline {
+    agent { label 'NODE' }
+    parameters { string(name: 'maven_goal', defaultValue: 'install', description: 'install the package') 
+                 choice(name: 'BRANCH_TO_BUILD', choices: ['test', 'develop', 'release'], description: 'to choose branch')
+                 }
+    triggers { pollSCM('H */4 * * 1-5') }
+    stages {
+        stage('git') {
+            steps {
+                
+                git url: 'git@github.com:Nagaraju11111/shopizer.git',
+                    branch: "${params.BRANCH_TO_BUILD}"
+            }
+        }
+        stage('maven') {
+           agent any
+            steps {
+                sh script: "mvn ${params.maven_goal}"
+            }
+        }
+        stage ('Artifactory configuration') {
+            steps {
+                rtMavenDeployer (
+                    id: "MAVEN_DEPLOYER",
+                    serverId: "JFROG-AC",
+                    releaseRepo: 'default-libs-release-local',
+                    snapshotRepo: 'default-libs-snapshot-local'
+                )
+             } 
+        }
+
+        stage ('Exec Maven') {
+            steps {
+                rtMavenRun (
+                    tool: 'MAVEN-3.6.3', // Tool name from Jenkins configuration
+                    pom: 'pom.xml',
+                    goals: 'clean install',
+                    deployerId: "MAVEN_DEPLOYER"
+                )
+            }
+        }
+        stage ('Publish build info') {
+            steps {
+                rtPublishBuildInfo (
+                    serverId: "JFROG-AC"
+                )
+            }
+        }
+    }
+}
